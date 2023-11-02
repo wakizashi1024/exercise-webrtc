@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GetUserMedia demo</title>
+</head>
+<body>
+    <div>
+        <span>Video input:&nbsp;</span>
+        <select id="videoIn">
+            <option value="none">No Device</option>
+        </select>
+    </div>
+    <div>
+        <span>Audio input:&nbsp;</span>
+        <select id="audioIn">
+            <option value="none">No Device</option>
+        </select>
+    </div>
+    <div>
+        <span>Audio output:&nbsp;</span>
+        <select id="audioOut">
+            <option value="none">No Device</option>
+        </select>
+    </div>
+    <div>
+        <video id="mediaSteam" style="max-width: calc(1280px / 2); max-height: calc(800px / 2);" playsinline autoplay controls>
+
+        </video>
+    </div>
+    <script>
+        const localDevice = {
+            audioIn: [],
+            videoIn: [],
+            audioOut: [],
+        };
+
+        const constraints = {
+            video: false,
+            audio: false,
+        };
+
+        const videoIn = document.querySelector("#videoIn");
+        const audioIn = document.querySelector("#audioIn");
+        const audioOut = document.querySelector("#audioOut");
+
+        const main = async () => {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+                console.error("Browser is not supported for media devices.");
+                return;
+            }
+
+            let devices = await navigator.mediaDevices.enumerateDevices();
+            devices.map((device) => {
+                const { kind, deviceId, label } = device;
+
+                if (kind === "audioinput") {
+                    constraints.audio = true;
+                } else if (kind === "audiooutput"){
+                    constraints.audio = true;
+                } else if (kind === "videoinput") {
+                    constraints.video = true;
+                }
+            });
+
+            // console.log(constraints);
+            let stream = await navigator.mediaDevices.getUserMedia(constraints)
+                .catch((err) => console.error(err));
+
+            devices = await navigator.mediaDevices.enumerateDevices()
+                .catch((err) => console.error(err));
+
+            devices.map((device) => {
+                    console.log(device);
+                    const { kind, deviceId, label } = device;
+                    if (kind === "audioinput") {
+                        if(deviceId && localDevice.audioIn.filter(item => item.deviceId === deviceId).length === 0) {
+                            localDevice.audioIn.push(device);
+                        }
+                        constraints.audio = true;
+                    } else if (kind === "audiooutput"){
+                        if(deviceId && localDevice.audioOut.filter(item => item.deviceId === deviceId).length === 0) {
+                            localDevice.audioOut.push(device);
+                        }
+                        constraints.audio = true;
+                    } else if (kind === "videoinput") {
+                        if(deviceId && localDevice.videoIn.filter(item => item.deviceId === deviceId).length === 0) {
+                            localDevice.videoIn.push(device);
+                        }
+                        constraints.video = true;
+                    }
+                });
+
+                console.log(localDevice);
+                
+                videoIn.innerHTML = `${
+                    localDevice.videoIn.map((item, idx) => {
+                        return `<option value="${idx}">${item.label}</option>`;
+                    }).join("\n")
+                }`;
+                audioIn.innerHTML = `${
+                    localDevice.audioIn.map((item, idx) => {
+                        return `<option value="${idx}">${item.label}</option>`;
+                    }).join("\n")
+                }`;
+                audioOut.innerHTML = `${
+                    localDevice.audioOut.map((item, idx) => {
+                        return `<option value="${idx}">${item.label}</option>`;
+                    }).join("\n")
+                }`;
+            }
+
+            const init = () => {
+                return navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            // deviceId: localDevice.audioIn[0].deviceId, 
+                            deviceId: localDevice.audioIn[audioIn.value].deviceId, 
+                        },
+                        video: {
+                            // deviceId: localDevice.videoIn[1].deviceId,
+                            deviceId: localDevice.videoIn[videoIn.value].deviceId,
+                            // width: 640,
+                            // height: 480,
+                            frameRate: { ideal: 30, max: 60 }
+                        }
+                    })
+                    .then((stream) => {
+                        console.log(stream.getTracks());
+                        const mediaSteam = document.querySelector("#mediaSteam");
+                        mediaSteam.srcObject = stream;
+                        mediaSteam.setSinkId(localDevice.audioOut[audioOut.value].deviceId);
+                    })
+                    .catch((err) => console.error(err));
+            }
+
+            videoIn.addEventListener("change", init);
+            audioIn.addEventListener("change", init);
+            audioOut.addEventListener("change", init);
+
+            main().then(
+                () => init()
+            );
+    </script>    
+</body>
+</html>
